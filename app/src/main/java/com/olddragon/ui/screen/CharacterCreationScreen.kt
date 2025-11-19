@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,10 +30,18 @@ import com.olddragon.service.Dado
 import com.olddragon.ui.components.DropdownMenuBox
 import com.olddragon.ui.components.AtributoSlider
 import com.olddragon.ui.theme.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.olddragon.viewmodel.PersonagemViewModel
+import com.olddragon.viewmodel.SalvamentoStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CharacterCreationScreen(controller: CharacterController) {
+fun CharacterCreationScreen(
+    controller: CharacterController,
+    viewModel: PersonagemViewModel = viewModel(),
+    onNavigateToList: () -> Unit = {},
+    onNavigateBack: () -> Unit = {}
+) {
     var nome by remember { mutableStateOf("") }
 
     // Estilo de criação
@@ -62,6 +72,9 @@ fun CharacterCreationScreen(controller: CharacterController) {
     // Estado do personagem criado
     var personagemCriado by remember { mutableStateOf<Personagem?>(null) }
 
+    // Observe o status de salvamento
+    val salvamentoStatus by viewModel.salvamentoStatus.collectAsState()
+
     // Background gradient
     val backgroundGradient = Brush.verticalGradient(
         colors = listOf(
@@ -78,10 +91,28 @@ fun CharacterCreationScreen(controller: CharacterController) {
             .verticalScroll(rememberScrollState())
     ) {
         // Cabeçalho épico
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(8.dp, RoundedCornerShape(16.dp)),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = onNavigateBack,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Voltar",
+                    tint = GryffindorGold,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            
+            Spacer(Modifier.width(8.dp))
+            
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .shadow(8.dp, RoundedCornerShape(16.dp)),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer
             ),
@@ -112,6 +143,7 @@ fun CharacterCreationScreen(controller: CharacterController) {
                     color = GryffindorLightGold
                 )
             }
+        }
         }
 
         Spacer(Modifier.height(20.dp))
@@ -401,6 +433,9 @@ fun CharacterCreationScreen(controller: CharacterController) {
                 )
 
                 personagemCriado = personagem
+
+                // 🔥 SALVAR NO BANCO DE DADOS
+                viewModel.salvarPersonagem(personagem)
             },
             enabled = podecriar,
             modifier = Modifier
@@ -419,6 +454,132 @@ fun CharacterCreationScreen(controller: CharacterController) {
                     letterSpacing = 1.sp
                 )
             )
+        }
+
+        // FEEDBACK DE SALVAMENTO
+        Spacer(Modifier.height(16.dp))
+
+        when (salvamentoStatus) {
+            is SalvamentoStatus.Salvando -> {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = GryffindorGold
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            "Salvando personagem...",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            }
+
+            is SalvamentoStatus.Sucesso -> {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF4CAF50).copy(alpha = 0.2f)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF4CAF50))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "✅",
+                            fontSize = 24.sp
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            "Personagem salvo com sucesso!",
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2E7D32)
+                            )
+                        )
+                    }
+                }
+            }
+
+            is SalvamentoStatus.Erro -> {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFF44336).copy(alpha = 0.2f)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFF44336))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "❌",
+                                fontSize = 24.sp
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                "Erro ao salvar",
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFC62828)
+                                )
+                            )
+                        }
+                        Text(
+                            (salvamentoStatus as SalvamentoStatus.Erro).mensagem,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFC62828)
+                        )
+                    }
+                }
+            }
+
+            else -> { /* Idle - não mostra nada */ }
+        }
+        if (salvamentoStatus is SalvamentoStatus.Sucesso) {
+            Spacer(Modifier.height(12.dp))
+
+            Button(
+                onClick = {
+                    viewModel.resetarStatus()
+                    onNavigateToList()
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = GryffindorGold,
+                    contentColor = DragonBlack
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    "📜 VER PERSONAGENS SALVOS",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
         }
 
         // Ficha épica do personagem
